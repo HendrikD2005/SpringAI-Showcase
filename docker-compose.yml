@@ -1,0 +1,34 @@
+services:
+  vectordb:
+    image: pgvector/pgvector:pg17
+    container_name: VectorDB
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vectordb
+    ports:
+      - "54325:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  springapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: SpringApp
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_CHAT_MODEL: gpt-4o
+      POSTGRES_HOST: vectordb
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: vectordb
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "8082:8082"
+    depends_on:
+      - vectordb
+
+volumes:
+  pgdata:
