@@ -1,9 +1,25 @@
-FROM eclipse-temurin:21-jdk-alpine
+# ─────────────────────────────────────────────
+# Stage 1: Build
+# ─────────────────────────────────────────────
+FROM maven:3.9-eclipse-temurin-23 AS build
+WORKDIR /app
 
-WORKDIR .
+# Caching dependencies for layer optimization
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
 
-COPY target/SpringAI-Showcase-1.0.0-SNAPSHOT.jar .
+# Copy code and build
+COPY src ./src
+RUN mvn package -DskipTests -B
 
-EXPOSE 8082
+# ─────────────────────────────────────────────
+# Stage 2: Runtime
+# ─────────────────────────────────────────────
+FROM eclipse-temurin:23-jre
+WORKDIR /app
 
-ENTRYPOINT ["java", "-jar", "SpringAI-Showcase-1.0.0-SNAPSHOT.jar"]
+COPY --from=build /app/target/*.jar app.jar
+
+EXPOSE 8081
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
