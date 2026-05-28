@@ -1,34 +1,41 @@
 services:
-  vectordb:
-    image: pgvector/pgvector:pg17
-    container_name: VectorDB
+
+  # ─────────────────────────────────────────────
+  # PGVector Database
+  # ─────────────────────────────────────────────
+  pgvector-db:
+    image: pgvector/pgvector:pg16
+    container_name: rag-pgvector
     environment:
+      POSTGRES_DB: ragdb
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: vectordb
     ports:
-      - "54325:5432"
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d ragdb" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  springapp:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: SpringApp
-    environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_CHAT_MODEL: gpt-4o
-      POSTGRES_HOST: vectordb
-      POSTGRES_PORT: 5432
-      POSTGRES_DATABASE: vectordb
-      POSTGRES_USERNAME: postgres
-      POSTGRES_PASSWORD: password
+  # ─────────────────────────────────────────────
+  # Spring Application
+  # ─────────────────────────────────────────────
+  rag-app:
+    build: .
+    container_name: rag-app
     ports:
-      - "8082:8082"
+      - "8081:8081"
+    environment:
+      DB_HOST: pgvector-db
+      DB_USER: postgres
+      DB_PASSWORD: password
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
-      - vectordb
+      pgvector-db:
+        condition: service_healthy
 
 volumes:
   pgdata:

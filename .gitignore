@@ -34,3 +34,5 @@ build/
 
 ### Misc ###
 .env
+.env.test
+.env.example
