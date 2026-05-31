@@ -18,9 +18,8 @@ spring:
 
     vectorstore:
       pgvector:
-        # Erstellt die Vector-Tabelle automatisch beim Start
         initialize-schema: true
-        # Muss zur Embedding-Dimension des Modells passen (ada-002 = 1536)
+        # Make sure the dimension matches the embedding model (ada-002 = 1536)
         dimensions: 1536
         distance-type: COSINE_DISTANCE
         schema-name: public
