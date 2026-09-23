@@ -11,6 +11,14 @@ and 16px interface text, with a canvas that never shrinks below 1200px. Narrow
 screens scroll the diagram horizontally rather than shrinking its text. Zoom,
 light/dark themes, and SVG export are available without menus or floating panels.
 
+The **Runthrough** player provides a 40-second animated walkthrough of a successful
+request, including the response back to the client. **Play** starts it, **Pause**
+holds the current position, **Resume** continues, and **Stop** resets to the
+overview. At the end, **Replay** starts again. Playback pauses when the page is
+hidden or a component is selected; selecting a request tab stops it. Reduced-motion
+preferences disable the travelling marker while retaining step highlights and
+captions. This is an offline diagram animation, not a live API call or a video file.
+
 ```bash
 curl http://localhost:8081/describe
 ```
@@ -29,6 +37,7 @@ Requires Node.js 18+ and Git. From the repository root:
 ```bash
 node scripts/architecture.mjs generate
 node scripts/architecture.mjs validate
+node --test scripts/architecture-playback.test.mjs
 ```
 
 The first command downloads the official [Archify](https://github.com/tt-a1i/archify)

@@ -34,6 +34,7 @@ export function createViewer(rendered, specification) {
   const license = readFileSync(new URL('../docs/architecture/ARCHIFY-LICENSE.txt', import.meta.url), 'utf8');
   svg = svg.replace(/(<svg\b[^>]*>)/, `$1\n<metadata>${escape(license)}</metadata>`);
   return template.replace('<!-- GRAPH -->', svg)
+    .replace('/* PLAYBACK */', readFileSync(new URL('./architecture-playback.mjs', import.meta.url), 'utf8').replace('export function', 'function'))
     .replace('/* SPECIFICATION */', data)
     .replace('<!-- LICENSE -->', `<!--\n${license.replace(/-->/g, '-- >')}\n-->`)
     .replace('<!-- NOTES -->', specification.cards.map(card => `<section><h2>${escape(card.title)}</h2>${card.items.map(item => `<p>${escape(item)}</p>`).join('')}</section>`).join('\n'))

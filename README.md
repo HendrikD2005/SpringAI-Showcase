@@ -13,6 +13,8 @@ A simple project demonstrating **Retrieval-Augmented Generation (RAG)** using:
 Explore a simple `GET /describe` call in the [Archify diagram](docs/architecture/describe.html)
 (download the HTML and open it in your browser). It includes readable request steps,
 component details, source references, zoom, light/dark themes, and SVG export.
+Use **Runthrough → Play** for a 40-second animated request walkthrough, with Pause
+and Stop controls.
 See [architecture documentation](docs/architecture/README.md) for regeneration commands.
 
 ## How RAG works in this project

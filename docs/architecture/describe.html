@@ -47,6 +47,11 @@ SOFTWARE.
   .tools, .steps, .zoom { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
   .toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:16px 0; border-top:1px solid var(--line); }
   .step-note { min-height:50px; margin:0; padding:4px 0 18px; max-width:95ch; }
+  .runthrough { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:0 0 16px; }
+  .runthrough progress { flex:1 1 160px; max-width:320px; height:8px; accent-color:var(--accent); }
+  .runthrough output { font-variant-numeric:tabular-nums; color:var(--muted); }
+  [data-playback-token] { fill:var(--accent); stroke:var(--paper); stroke-width:2; pointer-events:none; }
+  @media(prefers-reduced-motion:reduce) { [data-playback-token] { display:none; } }
   .diagram-container { background:var(--paper); border:1px solid var(--line); border-radius:6px; overflow:auto; }
   .diagram-container svg { display:block; width:100%; min-width:1200px; height:auto; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
   svg text { fill:var(--ink); }
@@ -70,7 +75,7 @@ SOFTWARE.
   .notes p { color:var(--muted); overflow-wrap:anywhere; }
   footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-top:32px; font-size:14px; }
   @media(max-width:800px) { main { padding:24px 18px; } header { align-items:flex-start; flex-direction:column; } h1 { font-size:26px; } .details, .notes { grid-template-columns:1fr; gap:16px; } .steps { align-items:stretch; } }
-  @media print { .tools,.toolbar,.hint { display:none; } main { padding:0; } .diagram-container { overflow:visible; } .diagram-container svg { min-width:0; width:100%!important; } }
+  @media print { .tools,.toolbar,.hint,.runthrough,[data-playback-token] { display:none; } main { padding:0; } .diagram-container { overflow:visible; } .diagram-container svg { min-width:0; width:100%!important; } }
 </style>
 </head>
 <body>
@@ -88,6 +93,12 @@ SOFTWARE.
     </nav>
     <div class="zoom" aria-label="Diagram zoom"><button id="zoom-out" aria-label="Zoom out" disabled>−</button><button id="zoom-reset" aria-label="Reset zoom">100%</button><button id="zoom-in" aria-label="Zoom in">+</button></div>
   </div>
+  <section class="runthrough" aria-label="Animated request runthrough">
+    <strong>Runthrough</strong>
+    <button id="play">Play</button><button id="pause" disabled>Pause</button><button id="stop" disabled>Stop</button>
+    <progress id="playback-progress" value="0" max="40" aria-label="Runthrough progress"></progress>
+    <output id="playback-time" aria-live="off">0:00 / 0:40</output>
+  </section>
   <p class="step-note" id="step-note" aria-live="polite">Follow the numbered calls. Responses return along the same connections.</p>
   <div class="diagram-container" tabindex="0" role="region" aria-label="Interactive architecture diagram. Scroll horizontally on small screens."><svg viewBox="0 0 1200 650" role="group" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase" id="architecture">
 <metadata>MIT License
@@ -253,6 +264,42 @@ SOFTWARE.
   <footer><span>Architecture rendered with Archify.</span><a href="https://github.com/HendrikD2005/SpringAI-Showcase/tree/feature/archify">View repository</a></footer>
 </main>
 <script>
+// Clock and frame scheduling are injectable so pause/resume can be tested
+// without a browser or real-time waits.
+function createPlayback({ steps, duration = 4000, onUpdate,
+  now = () => performance.now(), request = callback => requestAnimationFrame(callback),
+  cancel = handle => cancelAnimationFrame(handle) }) {
+  const total = steps * duration;
+  let state = 'stopped', elapsed = 0, startedAt = 0, handle = null;
+  function emit() {
+    onUpdate({ state, elapsed, total, index: Math.min(steps - 1, Math.floor(elapsed / duration)),
+      progress: elapsed === total ? 1 : (elapsed % duration) / duration });
+  }
+  function unschedule() { if (handle !== null) cancel(handle); handle = null; }
+  function updateTime() { elapsed = Math.min(total, Math.max(0, now() - startedAt)); }
+  function tick() {
+    handle = null;
+    if (state !== 'playing') return;
+    updateTime();
+    if (elapsed === total) state = 'ended';
+    emit();
+    if (state === 'playing') handle = request(tick);
+  }
+  return {
+    play() {
+      if (state === 'playing') return;
+      if (state === 'ended') elapsed = 0;
+      state = 'playing'; startedAt = now() - elapsed;
+      emit(); handle = request(tick);
+    },
+    pause() {
+      if (state !== 'playing') return;
+      unschedule(); updateTime(); state = elapsed === total ? 'ended' : 'paused'; emit();
+    },
+    stop() { unschedule(); elapsed = 0; state = 'stopped'; emit(); },
+  };
+}
+
 const specification = {"schema_version":1,"diagram_type":"architecture","meta":{"title":"Spring AI Showcase · A simple RAG request","locale":"en","quality_profile":"showcase","viewBox":[1200,650],"repository":{"url":"https://github.com/HendrikD2005/SpringAI-Showcase","revision":"bb245e0b183742f192a7a800ec792228f9633e32"},"views":[{"id":"request","label":"1. Receive request","focus":["caller","controller","rag"],"note":"GET /describe uses a fixed question about TIOBE.pdf; no request parameters are required."},{"id":"retrieval","label":"2. Retrieve context","focus":["rag","vector","embedding","postgres"],"note":"Spring AI embeds the question and retrieves up to five similar chunks from PGVector."},{"id":"answer","label":"3. Generate answer","focus":["rag","chat","controller","caller"],"note":"With matching chunks, RagService calls the chat model and the controller returns document and description as JSON."}]},"components":[{"id":"caller","type":"external","label":"HTTP client","sublabel":"curl / browser","pos":[40,80],"size":[190,70]},{"id":"controller","type":"backend","label":"DescribeController","sublabel":"GET /describe · :8081","pos":[460,80],"size":[220,70],"sources":[{"path":"src/main/java/com/hendrikd/springaishowcase/controller/DescribeController.java"}]},{"id":"rag","type":"backend","label":"RagService","sublabel":"Retrieve → context → answer","pos":[460,290],"size":[220,70],"sources":[{"path":"src/main/java/com/hendrikd/springaishowcase/service/RagService.java"}]},{"id":"chat","type":"cloud","label":"OpenAI Chat","sublabel":"gpt-4o-mini","pos":[890,290],"size":[220,70],"sources":[{"path":"src/main/resources/application.yml"}]},{"id":"vector","type":"backend","label":"Spring AI VectorStore","sublabel":"similaritySearch · topK 5","pos":[460,520],"size":[220,70],"sources":[{"path":"src/main/java/com/hendrikd/springaishowcase/service/RagService.java"}]},{"id":"embedding","type":"cloud","label":"OpenAI Embeddings","sublabel":"text-embedding-ada-002","pos":[40,520],"size":[220,70],"sources":[{"path":"src/main/resources/application.yml"}]},{"id":"postgres","type":"database","label":"PostgreSQL + PGVector","sublabel":"ragdb · vector_store","pos":[890,520],"size":[220,70],"sources":[{"path":"src/main/resources/application.yml"},{"path":"docker-compose.yml"}]}],"connections":[{"id":"http","from":"caller","to":"controller","label":"1. GET /describe","variant":"emphasis"},{"id":"delegate","from":"controller","to":"rag","label":"2. describe()","labelDy":80},{"id":"search","from":"rag","to":"vector","label":"3. Fixed question","labelDy":90},{"id":"embed","from":"vector","to":"embedding","label":"4. Embed query"},{"id":"sql","from":"vector","to":"postgres","label":"5. Cosine search"},{"id":"complete","from":"rag","to":"chat","label":"6. Context + question"}],"cards":[{"dot":"cyan","title":"Try the request","items":["curl http://localhost:8081/describe","200 JSON: document + description; returns follow the call chain."]},{"dot":"emerald","title":"Before the request","items":["At startup: read TIOBE.pdf, split pages, embed and store chunks.","Ingestion runs again on every application start."]},{"dot":"amber","title":"When retrieval is empty","items":["Skip the chat model and return a no-relevant-information message.","The controller still responds with HTTP 200 JSON."]}]};
 const graph = document.getElementById('architecture');
 const descriptions = {
@@ -283,12 +330,13 @@ function selectNode(id) {
 }
 graph.querySelectorAll('[data-node-id]').forEach(node => {
   node.setAttribute('aria-label', 'Show details: ' + node.dataset.nodeLabel);
-  node.addEventListener('click', () => selectNode(node.dataset.nodeId));
+  node.addEventListener('click', () => { playback.pause(); selectNode(node.dataset.nodeId); });
   node.addEventListener('keydown', event => {
-    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectNode(node.dataset.nodeId); }
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); playback.pause(); selectNode(node.dataset.nodeId); }
   });
 });
 document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+  playback.stop();
   const view = specification.meta.views.find(item => item.id === button.dataset.view);
   const focus = new Set(view?.focus || []);
   document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
@@ -296,6 +344,59 @@ document.querySelectorAll('[data-view]').forEach(button => button.addEventListen
   graph.querySelectorAll('[data-edge-id]').forEach(edge => edge.classList.toggle('active', focus.has(edge.dataset.edgeFrom) && focus.has(edge.dataset.edgeTo)));
   document.getElementById('step-note').textContent = view?.note || 'Follow the numbered calls. Responses return along the same connections.';
 }));
+const scenes = [
+  { edge:'http', node:'controller', view:'request', text:'The client sends GET /describe to the Spring application on port 8081.' },
+  { edge:'delegate', node:'rag', view:'request', text:'DescribeController calls RagService.describe() with the fixed document question.' },
+  { edge:'search', node:'vector', view:'retrieval', text:'RagService asks the VectorStore for up to five relevant document chunks.' },
+  { edge:'embed', node:'embedding', view:'retrieval', text:'Spring AI calls OpenAI Embeddings to turn the question into a vector.' },
+  { edge:'sql', node:'postgres', view:'retrieval', text:'Using the returned embedding, PGVector searches stored chunks by cosine distance.' },
+  { edge:'search', reverse:true, node:'rag', view:'retrieval', text:'Matching chunks return to RagService, which combines them into the prompt context.' },
+  { edge:'complete', node:'chat', view:'answer', text:'ChatClient sends the retrieved context and question to gpt-4o-mini.' },
+  { edge:'complete', reverse:true, node:'rag', view:'answer', text:'OpenAI returns an English document summary based on the supplied context.' },
+  { edge:'delegate', reverse:true, node:'controller', view:'answer', text:'RagService returns the summary to DescribeController.' },
+  { edge:'http', reverse:true, node:'caller', view:'answer', text:'The client receives HTTP 200 JSON with document and description. Request complete.' },
+];
+const token = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+token.setAttribute('r', '6'); token.setAttribute('data-playback-token', '');
+token.setAttribute('aria-hidden', 'true'); token.style.display = 'none'; graph.append(token);
+let lastScene = -1;
+const clockText = milliseconds => `${Math.floor(milliseconds / 60000)}:${String(Math.floor(milliseconds / 1000) % 60).padStart(2, '0')}`;
+const playback = createPlayback({ steps:scenes.length, onUpdate(snapshot) {
+  const { state, elapsed, total, index, progress } = snapshot;
+  document.getElementById('play').disabled = state === 'playing';
+  document.getElementById('play').textContent = state === 'paused' ? 'Resume' : state === 'ended' ? 'Replay' : 'Play';
+  document.getElementById('pause').disabled = state !== 'playing';
+  document.getElementById('stop').disabled = state === 'stopped';
+  document.getElementById('playback-progress').max = total / 1000;
+  document.getElementById('playback-progress').value = elapsed / 1000;
+  document.getElementById('playback-time').textContent = `${clockText(elapsed)} / ${clockText(total)}`;
+  if (state === 'stopped') {
+    lastScene = -1; token.style.display = 'none';
+    graph.querySelectorAll('.active').forEach(item => item.classList.remove('active'));
+    document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.view === 'all')));
+    document.getElementById('step-note').textContent = 'Follow the numbered calls. Responses return along the same connections.';
+    selectNode('caller'); return;
+  }
+  const scene = scenes[index];
+  const path = graph.querySelector(`path[data-edge-id="${scene.edge}"]`);
+  if (lastScene !== index) {
+    lastScene = index;
+    graph.querySelectorAll('[data-edge-id]').forEach(item => item.classList.toggle('active', item.dataset.edgeId === scene.edge));
+    graph.querySelectorAll('[data-node-id]').forEach(item => item.classList.toggle('active', [path.dataset.edgeFrom, path.dataset.edgeTo].includes(item.dataset.nodeId)));
+    document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.view === scene.view)));
+    document.getElementById('step-note').textContent = `Step ${index + 1} of ${scenes.length}. ${scene.text}`;
+    selectNode(scene.node);
+  }
+  // Hold briefly at each endpoint so the call and return direction is clear.
+  const travel = Math.min(1, Math.max(0, (progress - .1) / .75));
+  const point = path.getPointAtLength(path.getTotalLength() * (scene.reverse ? 1 - travel : travel));
+  token.setAttribute('cx', point.x); token.setAttribute('cy', point.y);
+  token.style.display = state === 'ended' ? 'none' : '';
+}});
+document.getElementById('play').addEventListener('click', () => playback.play());
+document.getElementById('pause').addEventListener('click', () => playback.pause());
+document.getElementById('stop').addEventListener('click', () => playback.stop());
+document.addEventListener('visibilitychange', () => { if (document.hidden) playback.pause(); });
 let zoom = 100;
 function setZoom(value) {
   zoom = Math.min(200, Math.max(100, value));
@@ -315,6 +416,7 @@ document.getElementById('theme').addEventListener('click', event => {
 });
 document.getElementById('export').addEventListener('click', () => {
   const clone = graph.cloneNode(true);
+  clone.querySelectorAll('[data-playback-token]').forEach(item => item.remove());
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   clone.removeAttribute('style');
   clone.setAttribute('width', '1200'); clone.setAttribute('height', '650');
