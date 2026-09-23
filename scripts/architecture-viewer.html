@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring AI Showcase — Request architecture</title>
+<!-- LICENSE -->
+<style id="viewer-style">
+  :root { color-scheme: light; --paper:#fff; --page:#fafaf8; --ink:#202822; --muted:#505a53; --line:#c7cdc7; --accent:#256442; --active:#edf5ee; }
+  :root[data-theme="dark"] { color-scheme:dark; --paper:#202420; --page:#181c19; --ink:#eff2ed; --muted:#bdc7bd; --line:#6f7a70; --accent:#a8d6b0; --active:#2b3c30; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:1560px; margin:auto; padding:32px 40px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:24px; }
+  h1 { font-size:30px; letter-spacing:-.7px; line-height:1.2; font-weight:600; margin:0 0 8px; }
+  p { margin:6px 0; }
+  header p, .hint, footer { color:var(--muted); }
+  button { font:inherit; color:inherit; cursor:pointer; background:var(--paper); border:1px solid var(--line); border-radius:5px; padding:8px 14px; min-height:44px; white-space:normal; }
+  button:hover { background:var(--active); }
+  button:disabled { opacity:.5; cursor:default; }
+  button[aria-pressed="true"] { background:var(--active); border-color:var(--accent); color:var(--accent); }
+  button:focus-visible, a:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+  .tools, .steps, .zoom { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  .toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:16px 0; border-top:1px solid var(--line); }
+  .step-note { min-height:50px; margin:0; padding:4px 0 18px; max-width:95ch; }
+  .diagram-container { background:var(--paper); border:1px solid var(--line); border-radius:6px; overflow:auto; }
+  .diagram-container svg { display:block; width:100%; min-width:1200px; height:auto; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  svg text { fill:var(--ink); }
+  svg .t-muted { fill:var(--muted); }
+  svg .c-mask { fill:var(--paper); }
+  svg [data-node-id] > rect:not(.c-mask) { fill:var(--paper); stroke:var(--line); }
+  svg [data-node-id] { cursor:pointer; }
+  svg [data-node-id]:hover > rect, svg [data-node-id]:focus > rect, svg [data-node-id][aria-pressed="true"] > rect, svg [data-node-id].active > rect { stroke:var(--accent); fill:var(--active); stroke-width:2; }
+  svg [data-node-id]:focus { outline:none; }
+  svg path[data-edge-id] { stroke:var(--line); fill:none; }
+  svg path[data-edge-id].active { stroke:var(--accent); stroke-width:2.5; }
+  svg marker polygon { fill:var(--muted); }
+  svg g[data-edge-id].active text { fill:var(--accent); font-weight:600; }
+  .hint { margin:10px 0 22px; font-size:15px; }
+  .details { display:grid; grid-template-columns:minmax(200px, 1fr) 3fr; gap:24px; border-top:1px solid var(--line); padding:22px 0; }
+  h2 { font-size:18px; line-height:1.4; margin:0 0 8px; font-weight:600; }
+  #node-summary, #node-description, #source-links { overflow-wrap:anywhere; }
+  a { color:var(--accent); text-underline-offset:3px; }
+  #source-links { display:flex; gap:8px 24px; flex-wrap:wrap; padding:0; list-style:none; }
+  .notes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:32px; padding-top:24px; border-top:1px solid var(--line); }
+  .notes p { color:var(--muted); overflow-wrap:anywhere; }
+  footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-top:32px; font-size:14px; }
+  @media(max-width:800px) { main { padding:24px 18px; } header { align-items:flex-start; flex-direction:column; } h1 { font-size:26px; } .details, .notes { grid-template-columns:1fr; gap:16px; } .steps { align-items:stretch; } }
+  @media print { .tools,.toolbar,.hint { display:none; } main { padding:0; } .diagram-container { overflow:visible; } .diagram-container svg { min-width:0; width:100%!important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>Spring AI Showcase</h1><p>How a <strong>GET /describe</strong> request becomes a document summary.</p></div>
+    <div class="tools"><button id="theme" aria-pressed="false">Dark mode</button><button id="export">Export SVG</button></div>
+  </header>
+  <div class="toolbar">
+    <nav class="steps" aria-label="Request walkthrough">
+      <button data-view="all" aria-pressed="true">Overview</button>
+      <button data-view="request" aria-pressed="false">1. Request</button>
+      <button data-view="retrieval" aria-pressed="false">2. Retrieval</button>
+      <button data-view="answer" aria-pressed="false">3. Answer</button>
+    </nav>
+    <div class="zoom" aria-label="Diagram zoom"><button id="zoom-out" aria-label="Zoom out" disabled>−</button><button id="zoom-reset" aria-label="Reset zoom">100%</button><button id="zoom-in" aria-label="Zoom in">+</button></div>
+  </div>
+  <p class="step-note" id="step-note" aria-live="polite">Follow the numbered calls. Responses return along the same connections.</p>
+  <div class="diagram-container" tabindex="0" role="region" aria-label="Interactive architecture diagram. Scroll horizontally on small screens."><!-- GRAPH --></div>
+  <p class="hint">Select a component for details and source code. On smaller screens, scroll across the diagram.</p>
+  <section class="details" aria-label="Component details" aria-live="polite">
+    <div><h2 id="node-title">HTTP client</h2><p id="node-summary">curl / browser</p></div>
+    <div><p id="node-description">Send GET http://localhost:8081/describe. The endpoint needs no query parameters and returns document and description as JSON.</p><ul id="source-links"></ul></div>
+  </section>
+  <div class="notes"><!-- NOTES --></div>
+  <footer><span>Architecture rendered with Archify.</span><a href="https://github.com/HendrikD2005/SpringAI-Showcase/tree/feature/archify">View repository</a></footer>
+</main>
+<script>
+const specification = /* SPECIFICATION */;
+const graph = document.getElementById('architecture');
+const descriptions = {
+  caller: 'Send GET http://localhost:8081/describe. The endpoint needs no query parameters and returns document and description as JSON.',
+  controller: 'Receives GET /describe, calls RagService.describe(), and returns HTTP 200 with the document name and description.',
+  rag: 'Searches for the fixed document question, joins the retrieved chunks into context, and calls the chat model. Empty retrieval returns an explanatory message without calling the chat model.',
+  vector: 'Spring AI embeds the search query and performs a similarity search against PGVector with topK set to 5.',
+  embedding: 'The configured text-embedding-ada-002 model produces the query embedding. The same model embeds document chunks during startup ingestion.',
+  postgres: 'PostgreSQL stores document chunks and 1536-dimensional vectors in public.vector_store. Retrieval uses cosine distance.',
+  chat: 'RagService sends the retrieved context and fixed question through ChatClient. The configured gpt-4o-mini model is instructed to answer in English using only the supplied context.'
+};
+function selectNode(id) {
+  const node = specification.components.find(item => item.id === id);
+  if (!node) return;
+  graph.querySelectorAll('[data-node-id]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.nodeId === id)));
+  document.getElementById('node-title').textContent = node.label;
+  document.getElementById('node-summary').textContent = node.sublabel || '';
+  document.getElementById('node-description').textContent = descriptions[id] || '';
+  const links = document.getElementById('source-links');
+  links.replaceChildren();
+  (node.sources || []).forEach(source => {
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.textContent = source.path.split('/').pop();
+    a.href = specification.meta.repository.url + '/blob/' + specification.meta.repository.revision + '/' + source.path.split('/').map(encodeURIComponent).join('/');
+    li.append(a); links.append(li);
+  });
+}
+graph.querySelectorAll('[data-node-id]').forEach(node => {
+  node.setAttribute('aria-label', 'Show details: ' + node.dataset.nodeLabel);
+  node.addEventListener('click', () => selectNode(node.dataset.nodeId));
+  node.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectNode(node.dataset.nodeId); }
+  });
+});
+document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+  const view = specification.meta.views.find(item => item.id === button.dataset.view);
+  const focus = new Set(view?.focus || []);
+  document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+  graph.querySelectorAll('[data-node-id]').forEach(node => node.classList.toggle('active', focus.has(node.dataset.nodeId)));
+  graph.querySelectorAll('[data-edge-id]').forEach(edge => edge.classList.toggle('active', focus.has(edge.dataset.edgeFrom) && focus.has(edge.dataset.edgeTo)));
+  document.getElementById('step-note').textContent = view?.note || 'Follow the numbered calls. Responses return along the same connections.';
+}));
+let zoom = 100;
+function setZoom(value) {
+  zoom = Math.min(200, Math.max(100, value));
+  graph.style.width = zoom + '%';
+  document.getElementById('zoom-reset').textContent = zoom + '%';
+  document.getElementById('zoom-out').disabled = zoom === 100;
+  document.getElementById('zoom-in').disabled = zoom === 200;
+}
+document.getElementById('zoom-in').addEventListener('click', () => setZoom(zoom + 25));
+document.getElementById('zoom-out').addEventListener('click', () => setZoom(zoom - 25));
+document.getElementById('zoom-reset').addEventListener('click', () => setZoom(100));
+document.getElementById('theme').addEventListener('click', event => {
+  const dark = document.documentElement.dataset.theme !== 'dark';
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  event.currentTarget.textContent = dark ? 'Light mode' : 'Dark mode';
+  event.currentTarget.setAttribute('aria-pressed', String(dark));
+});
+document.getElementById('export').addEventListener('click', () => {
+  const clone = graph.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.removeAttribute('style');
+  clone.setAttribute('width', '1200'); clone.setAttribute('height', '650');
+  clone.querySelectorAll('[data-node-id]').forEach(node => { node.classList.remove('active'); node.setAttribute('aria-pressed', 'false'); });
+  clone.querySelectorAll('[data-edge-id]').forEach(edge => edge.classList.remove('active'));
+  const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  style.textContent = ':root{--paper:#fff;--ink:#202822;--muted:#505a53;--line:#89958b;--accent:#256442;--active:#edf5ee}svg{font-family:system-ui,sans-serif;background:#fff}text{fill:var(--ink)}.t-muted{fill:var(--muted)}.c-mask{fill:#fff}[data-node-id]>rect:not(.c-mask){fill:#fff;stroke:var(--line)}path[data-edge-id]{stroke:var(--line);fill:none}marker polygon{fill:var(--muted)}';
+  clone.prepend(style);
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type:'image/svg+xml' }));
+  const link = document.createElement('a'); link.href = url; link.download = 'spring-ai-architecture.svg'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+</script>
+</body>
+</html>

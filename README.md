@@ -11,8 +11,8 @@ A simple project demonstrating **Retrieval-Augmented Generation (RAG)** using:
 ## Interactive architecture diagram
 
 Explore a simple `GET /describe` call in the [Archify diagram](docs/architecture/describe.html)
-(download the HTML and open it in your browser). It includes guided request views,
-clickable source references, search, zoom, themes, and export controls.
+(download the HTML and open it in your browser). It includes readable request steps,
+component details, source references, zoom, light/dark themes, and SVG export.
 See [architecture documentation](docs/architecture/README.md) for regeneration commands.
 
 ## How RAG works in this project

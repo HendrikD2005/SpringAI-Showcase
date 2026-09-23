@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { createViewer } from './architecture-viewer.mjs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -10,9 +12,10 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const cache = path.join(root, '.cache', 'archify', revision);
 const source = path.join(root, 'docs/architecture/describe.architecture.json');
 const output = path.join(root, 'docs/architecture/describe.html');
+const rawOutput = path.join(root, '.cache/archify/describe.raw.html');
 const mode = process.argv[2] ?? 'generate';
-if (!['generate', 'validate', 'visual-check'].includes(mode)) {
-  console.error('Usage: node scripts/architecture.mjs [generate|validate|visual-check]');
+if (!['generate', 'validate', 'upstream-visual-check'].includes(mode)) {
+  console.error('Usage: node scripts/architecture.mjs [generate|validate|upstream-visual-check]');
   process.exit(2);
 }
 
@@ -41,13 +44,28 @@ if (run('git', ['rev-parse', 'HEAD'], cache, true) !== revision ||
   throw new Error(`Archify cache is modified. Restore or move ${cache} before retrying.`);
 }
 const cli = path.join(cache, 'archify/bin/archify.mjs');
-if (mode === 'visual-check') {
-  run(process.execPath, [cli, 'visual-check', output, '--json']);
+if (mode === 'upstream-visual-check') {
+  // Upstream browser checks require the unmodified Archify viewer runtime.
+  run(process.execPath, [cli, 'visual-check', rawOutput, '--json']);
 } else {
   run(process.execPath, [cli, 'validate', 'architecture', source,
     '--quality', 'showcase', '--repo-root', root, '--json']);
+  if (mode === 'validate' && existsSync(output)) {
+    run(process.execPath, [cli, 'check', output]);
+  }
   if (mode === 'generate') {
-    run(process.execPath, [cli, 'deliver', 'architecture', source, output,
+    run(process.execPath, [cli, 'deliver', 'architecture', source, rawOutput,
       '--quality', 'showcase', '--repo-root', root, '--json']);
+    const html = createViewer(readFileSync(rawOutput, 'utf8'), JSON.parse(readFileSync(source, 'utf8')));
+    const candidate = output.replace(/\.html$/, '.candidate.html');
+    writeFileSync(candidate, html);
+    run(process.execPath, [cli, 'check', candidate]);
+    renameSync(candidate, output);
+    console.log(JSON.stringify({
+      output, viewer: 'minimal',
+      sha256: createHash('sha256').update(html).digest('hex'),
+      bytes: Buffer.byteLength(html),
+      browserReview: 'Review the final HTML separately; upstream browser checks only cover the raw viewer.',
+    }, null, 2));
   }
 }
