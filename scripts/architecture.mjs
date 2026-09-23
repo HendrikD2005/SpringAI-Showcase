@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
-import { createViewer } from './architecture-viewer.mjs';
+import { createViewer, createReadmePreview } from './architecture-viewer.mjs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -61,6 +61,7 @@ if (mode === 'upstream-visual-check') {
     writeFileSync(candidate, html);
     run(process.execPath, [cli, 'check', candidate]);
     renameSync(candidate, output);
+    writeFileSync(path.join(root, 'docs/architecture/describe.svg'), createReadmePreview(html));
     console.log(JSON.stringify({
       output, viewer: 'minimal',
       sha256: createHash('sha256').update(html).digest('hex'),

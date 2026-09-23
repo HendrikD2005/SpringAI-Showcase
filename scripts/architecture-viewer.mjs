@@ -2,6 +2,18 @@ import { readFileSync } from 'node:fs';
 
 const escape = (value) => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// GitHub READMEs can display SVG images but cannot execute the HTML player.
+export function createReadmePreview(html) {
+  const svg = html.match(/<svg\b[\s\S]*?<\/svg>/)?.[0];
+  if (!svg) throw new Error('The interactive viewer did not contain an SVG.');
+  const style = '<style>text{font-family:Arial,Helvetica,sans-serif;fill:#202822}.t-muted{fill:#505a53}.c-mask{fill:#fff}[data-node-id]>rect:not(.c-mask){fill:#fff;stroke:#89958b}path[data-edge-id]{stroke:#89958b;fill:none}marker polygon{fill:#505a53}</style>';
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' + svg
+    .replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" ')
+    .replace('role="group"', 'role="img"')
+    .replace(/ tabindex="0"| role="button"| aria-pressed="false"/g, '')
+    .replace(/(<svg\b[^>]*>)/, `$1${style}<rect width="1200" height="650" fill="#fff"/>`) + '\n';
+}
+
 // Archify owns graph layout and routing. This small presentation layer replaces
 // its dense default controls, without changing the graph's nodes or connections.
 export function createViewer(rendered, specification) {

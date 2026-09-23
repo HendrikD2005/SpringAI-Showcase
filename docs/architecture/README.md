@@ -47,7 +47,10 @@ The initial download needs network access; later runs use that verified checkout
 There are no npm dependencies or additions to the Java runtime.
 
 Edit [describe.architecture.json](describe.architecture.json), then regenerate
-and commit both the JSON and HTML. Update `meta.repository.revision` when mapping
+and commit the JSON, HTML, and generated `describe.svg` README preview together.
+The preview is extracted from the same diagram as the interactive viewer, so both
+stay in sync. GitHub renders this preview as a static image linked to the HTML download.
+Update `meta.repository.revision` when mapping
 a newer source revision. Generation validates repository evidence and all nine
 Archify showcase checks on the source graph. The presentation layer in
 `scripts/architecture-viewer.mjs` and `scripts/architecture-viewer.html` then
