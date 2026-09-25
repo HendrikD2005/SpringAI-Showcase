@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring AI Showcase — Request architecture</title>
+<!--
+MIT License
+
+Copyright (c) 2026 tt-a1i (Archify)
+Copyright (c) 2025 Cocoon AI
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-->
+<style id="viewer-style">
+  :root { color-scheme: light; --paper:#fff; --page:#fafaf8; --ink:#202822; --muted:#505a53; --line:#c7cdc7; --accent:#256442; --active:#edf5ee; }
+  :root[data-theme="dark"] { color-scheme:dark; --paper:#202420; --page:#181c19; --ink:#eff2ed; --muted:#bdc7bd; --line:#6f7a70; --accent:#a8d6b0; --active:#2b3c30; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:1560px; margin:auto; padding:32px 40px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:24px; }
+  h1 { font-size:30px; letter-spacing:-.7px; line-height:1.2; font-weight:600; margin:0 0 8px; }
+  p { margin:6px 0; }
+  header p, .hint, footer { color:var(--muted); }
+  button { font:inherit; color:inherit; cursor:pointer; background:var(--paper); border:1px solid var(--line); border-radius:5px; padding:8px 14px; min-height:44px; white-space:normal; }
+  button:hover { background:var(--active); }
+  button:disabled { opacity:.5; cursor:default; }
+  button[aria-pressed="true"] { background:var(--active); border-color:var(--accent); color:var(--accent); }
+  button:focus-visible, a:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+  .tools, .steps, .zoom { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  .toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:16px 0; border-top:1px solid var(--line); }
+  .step-note { min-height:50px; margin:0; padding:4px 0 18px; max-width:95ch; }
+  .runthrough { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:0 0 16px; }
+  .runthrough progress { flex:1 1 160px; max-width:320px; height:8px; accent-color:var(--accent); }
+  .runthrough output { font-variant-numeric:tabular-nums; color:var(--muted); }
+  [data-playback-token] { fill:var(--accent); stroke:var(--paper); stroke-width:2; pointer-events:none; }
+  @media(prefers-reduced-motion:reduce) { [data-playback-token] { display:none; } }
+  .diagram-container { background:var(--paper); border:1px solid var(--line); border-radius:6px; overflow:auto; }
+  .diagram-container svg { display:block; width:100%; min-width:1200px; height:auto; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  svg text { fill:var(--ink); }
+  svg .t-muted { fill:var(--muted); }
+  svg .c-mask { fill:var(--paper); }
+  svg [data-node-id] > rect:not(.c-mask) { fill:var(--paper); stroke:var(--line); }
+  svg [data-node-id] { cursor:pointer; }
+  svg [data-node-id]:hover > rect, svg [data-node-id]:focus > rect, svg [data-node-id][aria-pressed="true"] > rect, svg [data-node-id].active > rect { stroke:var(--accent); fill:var(--active); stroke-width:2; }
+  svg [data-node-id]:focus { outline:none; }
+  svg path[data-edge-id] { stroke:var(--line); fill:none; }
+  svg path[data-edge-id].active { stroke:var(--accent); stroke-width:2.5; }
+  svg marker polygon { fill:var(--muted); }
+  svg g[data-edge-id].active text { fill:var(--accent); font-weight:600; }
+  .hint { margin:10px 0 22px; font-size:15px; }
+  .details { display:grid; grid-template-columns:minmax(200px, 1fr) 3fr; gap:24px; border-top:1px solid var(--line); padding:22px 0; }
+  h2 { font-size:18px; line-height:1.4; margin:0 0 8px; font-weight:600; }
+  #node-summary, #node-description, #source-links { overflow-wrap:anywhere; }
+  a { color:var(--accent); text-underline-offset:3px; }
+  #source-links { display:flex; gap:8px 24px; flex-wrap:wrap; padding:0; list-style:none; }
+  .notes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:32px; padding-top:24px; border-top:1px solid var(--line); }
+  .notes p { color:var(--muted); overflow-wrap:anywhere; }
+  footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-top:32px; font-size:14px; }
+  @media(max-width:800px) { main { padding:24px 18px; } header { align-items:flex-start; flex-direction:column; } h1 { font-size:26px; } .details, .notes { grid-template-columns:1fr; gap:16px; } .steps { align-items:stretch; } }
+  @media print { .tools,.toolbar,.hint,.runthrough,[data-playback-token] { display:none; } main { padding:0; } .diagram-container { overflow:visible; } .diagram-container svg { min-width:0; width:100%!important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>Spring AI Showcase</h1><p>How a <strong>GET /describe</strong> request becomes a document summary.</p></div>
+    <div class="tools"><button id="theme" aria-pressed="false">Dark mode</button><button id="export">Export SVG</button></div>
+  </header>
+  <div class="toolbar">
+    <nav class="steps" aria-label="Request walkthrough">
+      <button data-view="all" aria-pressed="true">Overview</button>
+      <button data-view="request" aria-pressed="false">1. Request</button>
+      <button data-view="retrieval" aria-pressed="false">2. Retrieval</button>
+      <button data-view="answer" aria-pressed="false">3. Answer</button>
+    </nav>
+    <div class="zoom" aria-label="Diagram zoom"><button id="zoom-out" aria-label="Zoom out" disabled>−</button><button id="zoom-reset" aria-label="Reset zoom">100%</button><button id="zoom-in" aria-label="Zoom in">+</button></div>
+  </div>
+  <section class="runthrough" aria-label="Animated request runthrough">
+    <strong>Runthrough</strong>
+    <button id="play">Play</button><button id="pause" disabled>Pause</button><button id="stop" disabled>Stop</button>
+    <progress id="playback-progress" value="0" max="40" aria-label="Runthrough progress"></progress>
+    <output id="playback-time" aria-live="off">0:00 / 0:40</output>
+  </section>
+  <p class="step-note" id="step-note" aria-live="polite">Follow the numbered calls. Responses return along the same connections.</p>
+  <div class="diagram-container" tabindex="0" role="region" aria-label="Interactive architecture diagram. Scroll horizontally on small screens."><svg viewBox="0 0 1200 650" role="group" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase" id="architecture">
+<metadata>MIT License
+
+Copyright (c) 2026 tt-a1i (Archify)
+Copyright (c) 2025 Cocoon AI
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the &quot;Software&quot;), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</metadata>
+        <title id="archify-diagram-title">Spring AI Showcase · A simple RAG request</title>
+        <desc id="archify-diagram-description">An architecture diagram generated by Archify.</desc>
+        <!-- Definitions -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-default" />
+          </marker>
+          <marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis" />
+          </marker>
+          <marker id="arrowhead-security" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-security" />
+          </marker>
+          <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-dashed" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background Grid -->
+
+
+        <!-- Boundaries (behind everything) -->
+
+
+        <!-- Connection paths (before components for correct z-order) -->
+        <path data-edge-from="caller" data-edge-to="controller" data-edge-label="1. GET /describe" data-edge-key="0" data-edge-id="http" data-composition-points="230,115;460,115" d="M 230 115 L 460 115" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="controller" data-edge-to="rag" data-edge-label="2. describe()" data-edge-key="1" data-edge-id="delegate" data-composition-points="570,150;570,290" d="M 570 150 L 570 290" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="rag" data-edge-to="vector" data-edge-label="3. Fixed question" data-edge-key="2" data-edge-id="search" data-composition-points="570,360;570,520" d="M 570 360 L 570 520" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="vector" data-edge-to="embedding" data-edge-label="4. Embed query" data-edge-key="3" data-edge-id="embed" data-composition-points="460,555;260,555" d="M 460 555 L 260 555" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="vector" data-edge-to="postgres" data-edge-label="5. Cosine search" data-edge-key="4" data-edge-id="sql" data-composition-points="680,555;890,555" d="M 680 555 L 890 555" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="rag" data-edge-to="chat" data-edge-label="6. Context + question" data-edge-key="5" data-edge-id="complete" data-composition-points="680,325;890,325" d="M 680 325 L 890 325" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <!-- Components -->
+        <g id="node-caller" data-node-id="caller" data-node-label="HTTP client" tabindex="0" role="button" aria-label="Focus HTTP client, curl / browser, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="curl / browser" data-node-context="Architecture component">
+          <title>HTTP client · curl / browser · Architecture component</title>
+          <rect x="40" y="80" width="190" height="70" rx="6" class="c-mask"/>
+          <rect x="40" y="80" width="190" height="70" rx="6" class="c-external" stroke-width="1.5"/>
+
+          <text data-node-label="" data-detail-anchor="" x="135" y="113" class="t-primary" font-size="18" font-weight="600" text-anchor="middle">HTTP client</text>
+        <text data-detail="context" x="135" y="135" class="t-muted" font-size="14" text-anchor="middle">curl / browser</text>
+        </g>
+
+        <g id="node-controller" data-node-id="controller" data-node-label="DescribeController" tabindex="0" role="button" aria-label="Focus DescribeController, GET /describe · :8081, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="GET /describe · :8081" data-node-context="Architecture component">
+          <title>DescribeController · GET /describe · :8081 · Architecture component</title>
+          <rect x="460" y="80" width="220" height="70" rx="6" class="c-mask"/>
+          <rect x="460" y="80" width="220" height="70" rx="6" class="c-backend" stroke-width="1.5"/>
+
+          <text data-node-label="" data-detail-anchor="" x="570" y="113" class="t-primary" font-size="18" font-weight="600" text-anchor="middle">DescribeController</text>
+        <text data-detail="context" x="570" y="135" class="t-muted" font-size="14" text-anchor="middle">GET /describe · :8081</text>
+        </g>
+
+        <g id="node-rag" data-node-id="rag" data-node-label="RagService" tabindex="0" role="button" aria-label="Focus RagService, Retrieve → context → answer, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Retrieve → context → answer" data-node-context="Architecture component">
+          <title>RagService · Retrieve → context → answer · Architecture component</title>
+          <rect x="460" y="290" width="220" height="70" rx="6" class="c-mask"/>
+          <rect x="460" y="290" width="220" height="70" rx="6" class="c-backend" stroke-width="1.5"/>
+
+          <text data-node-label="" data-detail-anchor="" x="570" y="323" class="t-primary" font-size="18" font-weight="600" text-anchor="middle">RagService</text>
+        <text data-detail="context" x="570" y="345" class="t-muted" font-size="14" text-anchor="middle">Retrieve → context → answer</text>
+        </g>
+
+        <g id="node-chat" data-node-id="chat" data-node-label="OpenAI Chat" tabindex="0" role="button" aria-label="Focus OpenAI Chat, gpt-4o-mini, Architecture component" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="gpt-4o-mini" data-node-context="Architecture component">
+          <title>OpenAI Chat · gpt-4o-mini · Architecture component</title>
+          <rect x="890" y="290" width="220" height="70" rx="6" class="c-mask"/>
+          <rect x="890" y="290" width="220" height="70" rx="6" class="c-cloud" stroke-width="1.5"/>
+
+          <text data-node-label="" data-detail-anchor="" x="1000" y="323" class="t-primary" font-size="18" font-weight="600" text-anchor="middle">OpenAI Chat</text>
+        <text data-detail="context" x="1000" y="345" class="t-muted" font-size="14" text-anchor="middle">gpt-4o-mini</text>
+        </g>
+
+        <g id="node-vector" data-node-id="vector" data-node-label="Spring AI VectorStore" tabindex="0" role="button" aria-label="Focus Spring AI VectorStore, similaritySearch · topK 5, Architecture component" aria-pressed="false" data-node-kind="backend" data-node-sublabel="similaritySearch · topK 5" data-node-context="Architecture component">
+          <title>Spring AI VectorStore · similaritySearch · topK 5 · Architecture component</title>
+          <rect x="460" y="520" width="220" height="70" rx="6" class="c-mask"/>
+          <rect x="460" y="520" width="220" height="70" rx="6" class="c-backend" stroke-width="1.5"/>
+
+          <text data-node-label="" data-detail-anchor="" x="570" y="553" class="t-primary" font-size="18" font-weight="600" text-anchor="middle">Spring AI VectorStore</text>
+        <text data-detail="context" x="570" y="575" class="t-muted" font-size="14" text-anchor="middle">similaritySearch · topK 5</text>
+        </g>
+
+        <g id="node-embedding" data-node-id="embedding" data-node-label="OpenAI Embeddings" tabindex="0" role="button" aria-label="Focus OpenAI Embeddings, text-embedding-ada-002, Architecture component" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="text-embedding-ada-002" data-node-context="Architecture component">
+          <title>OpenAI Embeddings · text-embedding-ada-002 · Architecture component</title>
+          <rect x="40" y="520" width="220" height="70" rx="6" class="c-mask"/>
+          <rect x="40" y="520" width="220" height="70" rx="6" class="c-cloud" stroke-width="1.5"/>
+
+          <text data-node-label="" data-detail-anchor="" x="150" y="553" class="t-primary" font-size="18" font-weight="600" text-anchor="middle">OpenAI Embeddings</text>
+        <text data-detail="context" x="150" y="575" class="t-muted" font-size="14" text-anchor="middle">text-embedding-ada-002</text>
+        </g>
+
+        <g id="node-postgres" data-node-id="postgres" data-node-label="PostgreSQL + PGVector" tabindex="0" role="button" aria-label="Focus PostgreSQL + PGVector, ragdb · vector_store, Architecture component" aria-pressed="false" data-node-kind="database" data-node-sublabel="ragdb · vector_store" data-node-context="Architecture component">
+          <title>PostgreSQL + PGVector · ragdb · vector_store · Architecture component</title>
+          <rect x="890" y="520" width="220" height="70" rx="6" class="c-mask"/>
+          <rect x="890" y="520" width="220" height="70" rx="6" class="c-database" stroke-width="1.5"/>
+
+          <text data-node-label="" data-detail-anchor="" x="1000" y="553" class="t-primary" font-size="18" font-weight="600" text-anchor="middle">PostgreSQL + PGVector</text>
+        <text data-detail="context" x="1000" y="575" class="t-muted" font-size="14" text-anchor="middle">ragdb · vector_store</text>
+        </g>
+
+        <!-- Connection labels -->
+        <g data-detail="context" data-edge-from="caller" data-edge-to="controller" data-edge-label="1. GET /describe" data-edge-key="0" data-edge-id="http">
+          <rect x="277" y="90" width="136" height="22" rx="2" class="c-mask"/>
+          <text x="345" y="105" class="t-backend" font-size="14" text-anchor="middle">1. GET /describe</text>
+        </g>
+        <g data-detail="context" data-edge-from="controller" data-edge-to="rag" data-edge-label="2. describe()" data-edge-key="1" data-edge-id="delegate">
+          <rect x="513.25" y="205" width="113.5" height="22" rx="2" class="c-mask"/>
+          <text x="570" y="220" class="t-muted" font-size="14" text-anchor="middle">2. describe()</text>
+        </g>
+        <g data-detail="context" data-edge-from="rag" data-edge-to="vector" data-edge-label="3. Fixed question" data-edge-key="2" data-edge-id="search">
+          <rect x="498.25" y="425" width="143.5" height="22" rx="2" class="c-mask"/>
+          <text x="570" y="440" class="t-muted" font-size="14" text-anchor="middle">3. Fixed question</text>
+        </g>
+        <g data-detail="context" data-edge-from="vector" data-edge-to="embedding" data-edge-label="4. Embed query" data-edge-key="3" data-edge-id="embed">
+          <rect x="299.5" y="530" width="121" height="22" rx="2" class="c-mask"/>
+          <text x="360" y="545" class="t-muted" font-size="14" text-anchor="middle">4. Embed query</text>
+        </g>
+        <g data-detail="context" data-edge-from="vector" data-edge-to="postgres" data-edge-label="5. Cosine search" data-edge-key="4" data-edge-id="sql">
+          <rect x="717" y="530" width="136" height="22" rx="2" class="c-mask"/>
+          <text x="785" y="545" class="t-muted" font-size="14" text-anchor="middle">5. Cosine search</text>
+        </g>
+        <g data-detail="context" data-edge-from="rag" data-edge-to="chat" data-edge-label="6. Context + question" data-edge-key="5" data-edge-id="complete">
+          <rect x="698.25" y="300" width="173.5" height="22" rx="2" class="c-mask"/>
+          <text x="785" y="315" class="t-muted" font-size="14" text-anchor="middle">6. Context + question</text>
+        </g>
+
+        <!-- Boundary labels (foreground masks keep routes out of titles) -->
+
+
+        </svg></div>
+  <p class="hint">Select a component for details and source code. On smaller screens, scroll across the diagram.</p>
+  <section class="details" aria-label="Component details" aria-live="polite">
+    <div><h2 id="node-title">HTTP client</h2><p id="node-summary">curl / browser</p></div>
+    <div><p id="node-description">Send GET http://localhost:8081/describe. The endpoint needs no query parameters and returns document and description as JSON.</p><ul id="source-links"></ul></div>
+  </section>
+  <div class="notes"><section><h2>Try the request</h2><p>curl http://localhost:8081/describe</p><p>200 JSON: document + description; returns follow the call chain.</p></section>
+<section><h2>Before the request</h2><p>At startup: read TIOBE.pdf, split pages, embed and store chunks.</p><p>Ingestion runs again on every application start.</p></section>
+<section><h2>When retrieval is empty</h2><p>Skip the chat model and return a no-relevant-information message.</p><p>The controller still responds with HTTP 200 JSON.</p></section></div>
+  <footer><span>Architecture rendered with Archify.</span><a href="https://github.com/HendrikD2005/SpringAI-Showcase/tree/feature/archify">View repository</a></footer>
+</main>
+<script>
+// Clock and frame scheduling are injectable so pause/resume can be tested
+// without a browser or real-time waits.
+function createPlayback({ steps, duration = 4000, onUpdate,
+  now = () => performance.now(), request = callback => requestAnimationFrame(callback),
+  cancel = handle => cancelAnimationFrame(handle) }) {
+  const total = steps * duration;
+  let state = 'stopped', elapsed = 0, startedAt = 0, handle = null;
+  function emit() {
+    onUpdate({ state, elapsed, total, index: Math.min(steps - 1, Math.floor(elapsed / duration)),
+      progress: elapsed === total ? 1 : (elapsed % duration) / duration });
+  }
+  function unschedule() { if (handle !== null) cancel(handle); handle = null; }
+  function updateTime() { elapsed = Math.min(total, Math.max(0, now() - startedAt)); }
+  function tick() {
+    handle = null;
+    if (state !== 'playing') return;
+    updateTime();
+    if (elapsed === total) state = 'ended';
+    emit();
+    if (state === 'playing') handle = request(tick);
+  }
+  return {
+    play() {
+      if (state === 'playing') return;
+      if (state === 'ended') elapsed = 0;
+      state = 'playing'; startedAt = now() - elapsed;
+      emit(); handle = request(tick);
+    },
+    pause() {
+      if (state !== 'playing') return;
+      unschedule(); updateTime(); state = elapsed === total ? 'ended' : 'paused'; emit();
+    },
+    stop() { unschedule(); elapsed = 0; state = 'stopped'; emit(); },
+  };
+}
+
+const specification = {"schema_version":1,"diagram_type":"architecture","meta":{"title":"Spring AI Showcase · A simple RAG request","locale":"en","quality_profile":"showcase","viewBox":[1200,650],"repository":{"url":"https://github.com/HendrikD2005/SpringAI-Showcase","revision":"bb245e0b183742f192a7a800ec792228f9633e32"},"views":[{"id":"request","label":"1. Receive request","focus":["caller","controller","rag"],"note":"GET /describe uses a fixed question about TIOBE.pdf; no request parameters are required."},{"id":"retrieval","label":"2. Retrieve context","focus":["rag","vector","embedding","postgres"],"note":"Spring AI embeds the question and retrieves up to five similar chunks from PGVector."},{"id":"answer","label":"3. Generate answer","focus":["rag","chat","controller","caller"],"note":"With matching chunks, RagService calls the chat model and the controller returns document and description as JSON."}]},"components":[{"id":"caller","type":"external","label":"HTTP client","sublabel":"curl / browser","pos":[40,80],"size":[190,70]},{"id":"controller","type":"backend","label":"DescribeController","sublabel":"GET /describe · :8081","pos":[460,80],"size":[220,70],"sources":[{"path":"src/main/java/com/hendrikd/springaishowcase/controller/DescribeController.java"}]},{"id":"rag","type":"backend","label":"RagService","sublabel":"Retrieve → context → answer","pos":[460,290],"size":[220,70],"sources":[{"path":"src/main/java/com/hendrikd/springaishowcase/service/RagService.java"}]},{"id":"chat","type":"cloud","label":"OpenAI Chat","sublabel":"gpt-4o-mini","pos":[890,290],"size":[220,70],"sources":[{"path":"src/main/resources/application.yml"}]},{"id":"vector","type":"backend","label":"Spring AI VectorStore","sublabel":"similaritySearch · topK 5","pos":[460,520],"size":[220,70],"sources":[{"path":"src/main/java/com/hendrikd/springaishowcase/service/RagService.java"}]},{"id":"embedding","type":"cloud","label":"OpenAI Embeddings","sublabel":"text-embedding-ada-002","pos":[40,520],"size":[220,70],"sources":[{"path":"src/main/resources/application.yml"}]},{"id":"postgres","type":"database","label":"PostgreSQL + PGVector","sublabel":"ragdb · vector_store","pos":[890,520],"size":[220,70],"sources":[{"path":"src/main/resources/application.yml"},{"path":"docker-compose.yml"}]}],"connections":[{"id":"http","from":"caller","to":"controller","label":"1. GET /describe","variant":"emphasis"},{"id":"delegate","from":"controller","to":"rag","label":"2. describe()","labelDy":80},{"id":"search","from":"rag","to":"vector","label":"3. Fixed question","labelDy":90},{"id":"embed","from":"vector","to":"embedding","label":"4. Embed query"},{"id":"sql","from":"vector","to":"postgres","label":"5. Cosine search"},{"id":"complete","from":"rag","to":"chat","label":"6. Context + question"}],"cards":[{"dot":"cyan","title":"Try the request","items":["curl http://localhost:8081/describe","200 JSON: document + description; returns follow the call chain."]},{"dot":"emerald","title":"Before the request","items":["At startup: read TIOBE.pdf, split pages, embed and store chunks.","Ingestion runs again on every application start."]},{"dot":"amber","title":"When retrieval is empty","items":["Skip the chat model and return a no-relevant-information message.","The controller still responds with HTTP 200 JSON."]}]};
+const graph = document.getElementById('architecture');
+const descriptions = {
+  caller: 'Send GET http://localhost:8081/describe. The endpoint needs no query parameters and returns document and description as JSON.',
+  controller: 'Receives GET /describe, calls RagService.describe(), and returns HTTP 200 with the document name and description.',
+  rag: 'Searches for the fixed document question, joins the retrieved chunks into context, and calls the chat model. Empty retrieval returns an explanatory message without calling the chat model.',
+  vector: 'Spring AI embeds the search query and performs a similarity search against PGVector with topK set to 5.',
+  embedding: 'The configured text-embedding-ada-002 model produces the query embedding. The same model embeds document chunks during startup ingestion.',
+  postgres: 'PostgreSQL stores document chunks and 1536-dimensional vectors in public.vector_store. Retrieval uses cosine distance.',
+  chat: 'RagService sends the retrieved context and fixed question through ChatClient. The configured gpt-4o-mini model is instructed to answer in English using only the supplied context.'
+};
+function selectNode(id) {
+  const node = specification.components.find(item => item.id === id);
+  if (!node) return;
+  graph.querySelectorAll('[data-node-id]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.nodeId === id)));
+  document.getElementById('node-title').textContent = node.label;
+  document.getElementById('node-summary').textContent = node.sublabel || '';
+  document.getElementById('node-description').textContent = descriptions[id] || '';
+  const links = document.getElementById('source-links');
+  links.replaceChildren();
+  (node.sources || []).forEach(source => {
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.textContent = source.path.split('/').pop();
+    a.href = specification.meta.repository.url + '/blob/' + specification.meta.repository.revision + '/' + source.path.split('/').map(encodeURIComponent).join('/');
+    li.append(a); links.append(li);
+  });
+}
+graph.querySelectorAll('[data-node-id]').forEach(node => {
+  node.setAttribute('aria-label', 'Show details: ' + node.dataset.nodeLabel);
+  node.addEventListener('click', () => { playback.pause(); selectNode(node.dataset.nodeId); });
+  node.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); playback.pause(); selectNode(node.dataset.nodeId); }
+  });
+});
+document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+  playback.stop();
+  const view = specification.meta.views.find(item => item.id === button.dataset.view);
+  const focus = new Set(view?.focus || []);
+  document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+  graph.querySelectorAll('[data-node-id]').forEach(node => node.classList.toggle('active', focus.has(node.dataset.nodeId)));
+  graph.querySelectorAll('[data-edge-id]').forEach(edge => edge.classList.toggle('active', focus.has(edge.dataset.edgeFrom) && focus.has(edge.dataset.edgeTo)));
+  document.getElementById('step-note').textContent = view?.note || 'Follow the numbered calls. Responses return along the same connections.';
+}));
+const scenes = [
+  { edge:'http', node:'controller', view:'request', text:'The client sends GET /describe to the Spring application on port 8081.' },
+  { edge:'delegate', node:'rag', view:'request', text:'DescribeController calls RagService.describe() with the fixed document question.' },
+  { edge:'search', node:'vector', view:'retrieval', text:'RagService asks the VectorStore for up to five relevant document chunks.' },
+  { edge:'embed', node:'embedding', view:'retrieval', text:'Spring AI calls OpenAI Embeddings to turn the question into a vector.' },
+  { edge:'sql', node:'postgres', view:'retrieval', text:'Using the returned embedding, PGVector searches stored chunks by cosine distance.' },
+  { edge:'search', reverse:true, node:'rag', view:'retrieval', text:'Matching chunks return to RagService, which combines them into the prompt context.' },
+  { edge:'complete', node:'chat', view:'answer', text:'ChatClient sends the retrieved context and question to gpt-4o-mini.' },
+  { edge:'complete', reverse:true, node:'rag', view:'answer', text:'OpenAI returns an English document summary based on the supplied context.' },
+  { edge:'delegate', reverse:true, node:'controller', view:'answer', text:'RagService returns the summary to DescribeController.' },
+  { edge:'http', reverse:true, node:'caller', view:'answer', text:'The client receives HTTP 200 JSON with document and description. Request complete.' },
+];
+const token = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+token.setAttribute('r', '6'); token.setAttribute('data-playback-token', '');
+token.setAttribute('aria-hidden', 'true'); token.style.display = 'none'; graph.append(token);
+let lastScene = -1;
+const clockText = milliseconds => `${Math.floor(milliseconds / 60000)}:${String(Math.floor(milliseconds / 1000) % 60).padStart(2, '0')}`;
+const playback = createPlayback({ steps:scenes.length, onUpdate(snapshot) {
+  const { state, elapsed, total, index, progress } = snapshot;
+  document.getElementById('play').disabled = state === 'playing';
+  document.getElementById('play').textContent = state === 'paused' ? 'Resume' : state === 'ended' ? 'Replay' : 'Play';
+  document.getElementById('pause').disabled = state !== 'playing';
+  document.getElementById('stop').disabled = state === 'stopped';
+  document.getElementById('playback-progress').max = total / 1000;
+  document.getElementById('playback-progress').value = elapsed / 1000;
+  document.getElementById('playback-time').textContent = `${clockText(elapsed)} / ${clockText(total)}`;
+  if (state === 'stopped') {
+    lastScene = -1; token.style.display = 'none';
+    graph.querySelectorAll('.active').forEach(item => item.classList.remove('active'));
+    document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.view === 'all')));
+    document.getElementById('step-note').textContent = 'Follow the numbered calls. Responses return along the same connections.';
+    selectNode('caller'); return;
+  }
+  const scene = scenes[index];
+  const path = graph.querySelector(`path[data-edge-id="${scene.edge}"]`);
+  if (lastScene !== index) {
+    lastScene = index;
+    graph.querySelectorAll('[data-edge-id]').forEach(item => item.classList.toggle('active', item.dataset.edgeId === scene.edge));
+    graph.querySelectorAll('[data-node-id]').forEach(item => item.classList.toggle('active', [path.dataset.edgeFrom, path.dataset.edgeTo].includes(item.dataset.nodeId)));
+    document.querySelectorAll('[data-view]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.view === scene.view)));
+    document.getElementById('step-note').textContent = `Step ${index + 1} of ${scenes.length}. ${scene.text}`;
+    selectNode(scene.node);
+  }
+  // Hold briefly at each endpoint so the call and return direction is clear.
+  const travel = Math.min(1, Math.max(0, (progress - .1) / .75));
+  const point = path.getPointAtLength(path.getTotalLength() * (scene.reverse ? 1 - travel : travel));
+  token.setAttribute('cx', point.x); token.setAttribute('cy', point.y);
+  token.style.display = state === 'ended' ? 'none' : '';
+}});
+document.getElementById('play').addEventListener('click', () => playback.play());
+document.getElementById('pause').addEventListener('click', () => playback.pause());
+document.getElementById('stop').addEventListener('click', () => playback.stop());
+document.addEventListener('visibilitychange', () => { if (document.hidden) playback.pause(); });
+let zoom = 100;
+function setZoom(value) {
+  zoom = Math.min(200, Math.max(100, value));
+  graph.style.width = zoom + '%';
+  document.getElementById('zoom-reset').textContent = zoom + '%';
+  document.getElementById('zoom-out').disabled = zoom === 100;
+  document.getElementById('zoom-in').disabled = zoom === 200;
+}
+document.getElementById('zoom-in').addEventListener('click', () => setZoom(zoom + 25));
+document.getElementById('zoom-out').addEventListener('click', () => setZoom(zoom - 25));
+document.getElementById('zoom-reset').addEventListener('click', () => setZoom(100));
+document.getElementById('theme').addEventListener('click', event => {
+  const dark = document.documentElement.dataset.theme !== 'dark';
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  event.currentTarget.textContent = dark ? 'Light mode' : 'Dark mode';
+  event.currentTarget.setAttribute('aria-pressed', String(dark));
+});
+document.getElementById('export').addEventListener('click', () => {
+  const clone = graph.cloneNode(true);
+  clone.querySelectorAll('[data-playback-token]').forEach(item => item.remove());
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.removeAttribute('style');
+  clone.setAttribute('width', '1200'); clone.setAttribute('height', '650');
+  clone.querySelectorAll('[data-node-id]').forEach(node => { node.classList.remove('active'); node.setAttribute('aria-pressed', 'false'); });
+  clone.querySelectorAll('[data-edge-id]').forEach(edge => edge.classList.remove('active'));
+  const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  style.textContent = ':root{--paper:#fff;--ink:#202822;--muted:#505a53;--line:#89958b;--accent:#256442;--active:#edf5ee}svg{font-family:system-ui,sans-serif;background:#fff}text{fill:var(--ink)}.t-muted{fill:var(--muted)}.c-mask{fill:#fff}[data-node-id]>rect:not(.c-mask){fill:#fff;stroke:var(--line)}path[data-edge-id]{stroke:var(--line);fill:none}marker polygon{fill:var(--muted)}';
+  clone.prepend(style);
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type:'image/svg+xml' }));
+  const link = document.createElement('a'); link.href = url; link.download = 'spring-ai-architecture.svg'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+</script>
+</body>
+</html>

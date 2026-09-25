@@ -8,6 +8,24 @@ A simple project demonstrating **Retrieval-Augmented Generation (RAG)** using:
 
 ---
 
+## Interactive architecture diagram
+
+Follow a `GET /describe` request through Spring AI, PGVector, and OpenAI:
+
+[![Architecture of GET /describe: HTTP client, DescribeController, RagService, Spring AI VectorStore, OpenAI Embeddings, PostgreSQL with PGVector, and OpenAI Chat.](docs/architecture/describe.svg)](https://github.com/HendrikD2005/SpringAI-Showcase/raw/refs/heads/feature/archify/docs/architecture/describe.html)
+
+**[Download the interactive chart](https://github.com/HendrikD2005/SpringAI-Showcase/raw/refs/heads/feature/archify/docs/architecture/describe.html)**
+and open the HTML file in your browser. Select **Runthrough → Play** for a
+40-second animated walkthrough of the request and response. **Pause**, **Resume**,
+**Stop**, and **Replay** let you control playback. Select components to read their
+details and source code; zoom, light/dark themes, and SVG export are also available.
+
+GitHub displays the preview above as a static image; the interactive player runs
+in the downloaded HTML. It works offline without an API key or a running application.
+Source-code links require an internet connection.
+
+See [architecture documentation](docs/architecture/README.md) for regeneration commands.
+
 ## How RAG works in this project
 
 ```

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Spring AI Showcase · A simple RAG request",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [1200, 650],
+    "repository": {
+      "url": "https://github.com/HendrikD2005/SpringAI-Showcase",
+      "revision": "bb245e0b183742f192a7a800ec792228f9633e32"
+    },
+    "views": [
+      { "id": "request", "label": "1. Receive request", "focus": ["caller", "controller", "rag"], "note": "GET /describe uses a fixed question about TIOBE.pdf; no request parameters are required." },
+      { "id": "retrieval", "label": "2. Retrieve context", "focus": ["rag", "vector", "embedding", "postgres"], "note": "Spring AI embeds the question and retrieves up to five similar chunks from PGVector." },
+      { "id": "answer", "label": "3. Generate answer", "focus": ["rag", "chat", "controller", "caller"], "note": "With matching chunks, RagService calls the chat model and the controller returns document and description as JSON." }
+    ]
+  },
+  "components": [
+    { "id": "caller", "type": "external", "label": "HTTP client", "sublabel": "curl / browser", "pos": [40, 80], "size": [190, 70] },
+    { "id": "controller", "type": "backend", "label": "DescribeController", "sublabel": "GET /describe · :8081", "pos": [460, 80], "size": [220, 70], "sources": [{ "path": "src/main/java/com/hendrikd/springaishowcase/controller/DescribeController.java" }] },
+    { "id": "rag", "type": "backend", "label": "RagService", "sublabel": "Retrieve → context → answer", "pos": [460, 290], "size": [220, 70], "sources": [{ "path": "src/main/java/com/hendrikd/springaishowcase/service/RagService.java" }] },
+    { "id": "chat", "type": "cloud", "label": "OpenAI Chat", "sublabel": "gpt-4o-mini", "pos": [890, 290], "size": [220, 70], "sources": [{ "path": "src/main/resources/application.yml" }] },
+    { "id": "vector", "type": "backend", "label": "Spring AI VectorStore", "sublabel": "similaritySearch · topK 5", "pos": [460, 520], "size": [220, 70], "sources": [{ "path": "src/main/java/com/hendrikd/springaishowcase/service/RagService.java" }] },
+    { "id": "embedding", "type": "cloud", "label": "OpenAI Embeddings", "sublabel": "text-embedding-ada-002", "pos": [40, 520], "size": [220, 70], "sources": [{ "path": "src/main/resources/application.yml" }] },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL + PGVector", "sublabel": "ragdb · vector_store", "pos": [890, 520], "size": [220, 70], "sources": [{ "path": "src/main/resources/application.yml" }, { "path": "docker-compose.yml" }] }
+  ],
+  "connections": [
+    { "id": "http", "from": "caller", "to": "controller", "label": "1. GET /describe", "variant": "emphasis" },
+    { "id": "delegate", "from": "controller", "to": "rag", "label": "2. describe()", "labelDy": 80 },
+    { "id": "search", "from": "rag", "to": "vector", "label": "3. Fixed question", "labelDy": 90 },
+    { "id": "embed", "from": "vector", "to": "embedding", "label": "4. Embed query" },
+    { "id": "sql", "from": "vector", "to": "postgres", "label": "5. Cosine search" },
+    { "id": "complete", "from": "rag", "to": "chat", "label": "6. Context + question" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Try the request", "items": ["curl http://localhost:8081/describe", "200 JSON: document + description; returns follow the call chain."] },
+    { "dot": "emerald", "title": "Before the request", "items": ["At startup: read TIOBE.pdf, split pages, embed and store chunks.", "Ingestion runs again on every application start."] },
+    { "dot": "amber", "title": "When retrieval is empty", "items": ["Skip the chat model and return a no-relevant-information message.", "The controller still responds with HTTP 200 JSON."] }
+  ]
+}

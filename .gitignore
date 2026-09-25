@@ -36,3 +36,7 @@ build/
 .env
 .env.test
 .env.example
+
+### Architecture tooling ###
+.cache/archify/
+docs/architecture/*.visual-check*
